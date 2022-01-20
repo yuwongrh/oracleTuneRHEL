@@ -53,7 +53,7 @@ net.core.wmem_default = 262144
 net.core.wmem_max = 1048576
 kernel.panic_on_oops = 1
 kernel.numa_balancing = 0
-vm.nr_hugepages = $( echo $1 | awk '{ IGNORECASE=1; if ($1 ~ "g" || $1 ~ "gb" )  d = $1 * 1024 * 1024 / 2048 ;else if ($1 ~ "m" || $1 ~ "mb"  ) d= $1 * 1024 / 2048 ; else if ($1 ~ "k" || $1 ~ "kb" ) d = $1; else d = $1 / 1024 / 2048 ; print d }' )
+vm.nr_hugepages = $( echo $1 | awk '{ IGNORECASE=1; if ($1 ~ "g" || $1 ~ "gb" )  d = $1 * 1024 * 1024 / 2048 ;else if ($1 ~ "m" || $1 ~ "mb"  ) d= $1 * 1024 / 2048 ; else if ($1 ~ "k" || $1 ~ "kb" ) d = $1 / 2048; else d = $1 / 1024 / 2048 ; print d }' )
 
 [vm]
 transparent_hugepages=never
