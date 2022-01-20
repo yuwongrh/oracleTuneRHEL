@@ -1,0 +1,74 @@
+#!/bin/bash
+
+if [[ -z "$1" ]] ; then
+ echo "Usage: ${0} [SGA Size]"
+ echo "       SGA Size: can be speified in XXGB, XXG, XXMB, XXM, XXKB, XXK, XXXXX"
+ exit 1
+fi
+
+function result {
+ if [ $1 -eq 0 ] ; then
+  echo "Success"
+ else
+  echo "Failed"
+  exit 1
+ fi
+}
+
+echo -n "Installing tunded-profiles-oracle... "
+yum -y install tuned-profiles-oracle >/dev/null 2>71
+result $?
+echo -n "setting tuned profile to oracle... "
+tuned-adm profile oracle >/dev/null 2>&1
+result $?
+echo -n "Active tuned... "
+tuned-adm active >/dev/null 2>&1
+result $?
+echo -n "Creating folder /etc/tuned/oracle... "
+mkdir -p /etc/tuned/oracle >/dev/null 2>&1
+result $?
+echo -n "Patching oracle profile... "
+cat <<EOF > /etc/tuned/oracle/tuned.conf
+[main]
+summary=Optimize for Oracle RDBMS
+include=throughput-performance
+
+[sysctl]
+vm.swappiness = 10
+vm.dirty_background_ratio = 3
+vm.dirty_ratio = 40
+vm.dirty_expire_centisecs = 500
+vm.dirty_writeback_centisecs = 100
+kernel.shmmax = $( free -b | awk '$1=="Mem:" { print $2 / 2}' )
+kernel.shmall = $( free -k | awk '$1=="Mem:" { print $2 / 2 / 4 }' )
+kernel.shmmni = 4096
+kernel.sem = 250 32000 100 128
+kernel.randomize_va_space = 0
+fs.file-max = 6815744
+fs.aio-max-nr = 1048576
+net.ipv4.ip_local_port_range = 9000 65499
+net.core.rmem_default = 262144
+net.core.rmem_max = 4194304
+net.core.wmem_default = 262144
+net.core.wmem_max = 1048576
+kernel.panic_on_oops = 1
+kernel.numa_balancing = 0
+vm.nr_hugepages = $( echo $1 | awk '{ IGNORECASE=1; if ($1 ~ "g" || $1 ~ "gb" )  d = $1 * 1024 * 1024 / 2048 ;else if ($1 ~ "m" || $1 ~ "mb"  ) d= $1 * 1024 / 2048 ; else if ($1 ~ "k" || $1 ~ "kb" ) d = $1; else d = $1 / 1024 / 2048 ; print d }' )
+
+[vm]
+transparent_hugepages=never
+EOF
+result $?
+echo 0n "Patcing /etc/security/limits.d/oracle.conf... "
+cat <<EOF > /etc/security/limits.d/oracle.conf
+oracle soft nproc 16384
+oracle hard nproc 16384
+oracle soft nofile 1024
+oracle hard nofile 65536
+oracle soft stack 10240
+oracle hard stack 32768
+EOF
+result $?
+echo -n "Restaring tuned service... "
+systemctl restart tuned >/dev/null 2>&1
+result $?
